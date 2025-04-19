@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foreign Language Learning App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+</head>
+<style>
+    * {
+        font-family: "Inter", serif;
+    }
+</style>
+<body class="bg-[#1c1b22] p-4">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function WordList({ words, onDelete, onToggleTranslation }) {
+            return (
+                <div className="mt-4 space-y-4 bg-[#1c1b22]">
+                    {words.map(word => (
+                        <div key={word.id} className="bg-[#1c1b22] p-4 flex items-center justify-between text-white rounded text-[14px] focus:outline-none">
+                            <div>
+                                <p className="font-bold">{word.original}</p>
+                                <button
+                                    onClick={() => onToggleTranslation(word.id)}
+                                    className="text-blue-500 underline"
+                                >
+                                    {word.showTranslation ? 'Hide Translation' : 'Show Translation'}
+                                </button>
+                                {word.showTranslation && <p className="mt-1">{word.translation}</p>}
+                            </div>
+                            <button
+                                onClick={() => onDelete(word.id)}
+                                className="bg-[#2b2a33] text-white px-4 py-2 rounded hover:bg-[#42414d] text-[14px] focus:outline-none transition"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        function ForeignLanguageApp() {
+            const [words, setWords] = useState(() => JSON.parse(localStorage.getItem('words')) || []);
+            const [originalWord, setOriginalWord] = useState('');
+            const [translation, setTranslation] = useState('');
+            const [file, setFile] = useState(null);
+
+            useEffect(() => {
+                localStorage.setItem('words', JSON.stringify(words));
+            }, [words]);
+
+            // const addWord = () => {
+            //     if (originalWord.trim() && translation.trim()) {
+            //         setWords(prevWords => [...prevWords, { id: Date.now(), original: originalWord.trim(), translation: translation.trim(), showTranslation: false }]);
+            //         setOriginalWord('');
+            //         setTranslation('');
+            //     }
+            // };
+            const addWord = () => {
+                if (originalWord.trim() && translation.trim()) {
+                    setWords(prevWords => [
+                        ...prevWords,
+                        { id: Date.now(), original: originalWord.trim(), translation: translation.trim(), showTranslation: false },
+                        { id: Date.now() + 1, original: translation.trim(), translation: originalWord.trim(), showTranslation: false } // Reversed pair
+                    ]);
+                    setOriginalWord('');
+                    setTranslation('');
+                }
+            };
+
+
+            const deleteWord = (wordId) => {
+                setWords(words.filter(word => word.id !== wordId));
+            };
+
+            const toggleTranslation = (wordId) => {
+                setWords(words.map(word => word.id === wordId ? { ...word, showTranslation: !word.showTranslation } : word));
+            };
+
+            const handleFileChange = (event) => {
+                setFile(event.target.files[0]);
+            };
+
+            // const importWords = async () => {
+            //     if (!file) return;
+
+            //     const reader = new FileReader();
+            //     reader.onload = (e) => {
+            //         const content = e.target.result;
+            //         console.log('File Content:', content);
+
+            //         const lines = content.split('\n').map(line => line.trim());
+            //         console.log('Lines:', lines);
+
+            //         const parsedWords = lines
+            //             .filter(line => line.startsWith('|') && line.endsWith('|'))
+            //             .map(line => {
+            //                 const parts = line.split('|').map(part => part.trim()).filter(part => part.length > 0);
+            //                 console.log({ original: parts[0], translation: parts[1] });
+            //                 return { original: parts[0], translation: parts[1] };
+            //             })
+
+            //         console.log('Parsed Words:', parsedWords);
+
+            //         setWords(prevWords => [
+            //             ...prevWords,
+            //             ...parsedWords.map((word, index) => ({
+            //                 ...word,
+            //                 id: Date.now() + index, // Ensure unique IDs
+            //                 showTranslation: false
+            //             }))
+            //         ]);
+            //     };
+            //     reader.readAsText(file);
+            // };
+            const importWords = async () => {
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    const lines = content.split('\n').map(line => line.trim());
+
+                    const parsedWords = lines
+                        .filter(line => line.startsWith('|') && line.endsWith('|'))
+                        .map(line => {
+                            const parts = line.split('|').map(part => part.trim()).filter(part => part.length > 0);
+                            return { original: parts[0], translation: parts[2] };
+                        });
+
+                    setWords(prevWords => [
+                        ...prevWords,
+                        ...parsedWords.flatMap((word, index) => [
+                            { id: Date.now() + index * 2, original: word.original, translation: word.translation, showTranslation: false },
+                            { id: Date.now() + index * 2 + 1, original: word.translation, translation: word.original, showTranslation: false } // Reversed pair
+                        ])
+                    ]);
+                };
+                reader.readAsText(file);
+            };
+
+
+            const shuffleWords = () => {
+                const shuffledWords = [...words];
+                for (let i = shuffledWords.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
+                }
+                setWords(shuffledWords);
+            };
+
+            return (
+                <div className="max-w-2xl mx-auto bg-[#1c1b22] p-8 rounded-lg text-white">
+                    <h1 className="text-3xl font-bold mb-6 text-center">Learning App</h1>
+                    <div className="mb-6">
+                        <input
+                            type="text"
+                            value={originalWord}
+                            onChange={(e) => setOriginalWord(e.target.value)}
+                            placeholder="Enter an English word..."
+                            className="font-[400] text-white placeholder:text-white placeholder:font-[400] placeholder:text-[14px] w-full p-2 border-4 rounded border-[#2b2a33] focus:outline-none focus:border-[#42414d] focus:bg-[#42414d]
+                                bg-[#1e1d24] transition"
+                        />
+                        <input
+                            type="text"
+                            value={translation}
+                            onChange={(e) => setTranslation(e.target.value)}
+                            placeholder="Enter the translation..."
+                            className="font-[400] text-white placeholder:text-white placeholder:font-[400] placeholder:text-[14px] w-full mt-2 p-2 border-4 rounded border-[#2b2a33] focus:outline-none focus:border-[#42414d] focus:bg-[#42414d]
+                                bg-[#1e1d24] transition"
+                        />
+                        <button onClick={addWord} className="mt-2 bg-[#2b2a33] text-white px-4 py-2 rounded hover:bg-[#42414d] text-[14px] focus:outline-none transition">
+                            Add Word
+                        </button>
+                    </div>
+                    <div className="mb-6">
+                        <input
+                            type="file"
+                            accept=".md"
+                            onChange={handleFileChange}
+                            className="w-full p-2 bg-[#2b2a33] text-white px-4 py-2 rounded hover:bg-[#42414d] text-[14px] focus:outline-none transition"
+                        />
+                        <button onClick={importWords} className="mt-2 bg-[#2b2a33] text-white px-4 py-2 rounded hover:bg-[#42414d] text-[14px] focus:outline-none transition">
+                            Import Words
+                        </button>
+                        <button onClick={shuffleWords} className="mt-2 ml-2 bg-[#2b2a33] text-white px-4 py-2 rounded hover:bg-[#42414d] text-[14px] focus:outline-none transition">
+                            Shuffle Words
+                        </button>
+                    </div>
+                    <WordList words={words} onDelete={deleteWord} onToggleTranslation={toggleTranslation} />
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ForeignLanguageApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
